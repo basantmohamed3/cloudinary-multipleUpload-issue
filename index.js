@@ -20,7 +20,7 @@ cloudinary.v2.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-console.log(process.env.API_KEY, process.env.CLOUD_NAME);
+
 let cloudinaryVersion = cloudinary.v2;
 /*
   *****************************************
@@ -67,7 +67,32 @@ const initServer = async () => {
   app.get("/", (req, res) => {
     res.send("Welcome !");
   });
+  app.post(
+    "/single-upload",
+    multerMiddleware.single("file"),
+    async (req, res) => {
+      try {
+        console.log(req.file);
+        if (!req.file) {
+          return res.status(200).json({ message: "Invalid file type" });
+        }
+        let file = {};
+        await cloudinary.v2.uploader.upload(req.file.path, (error, result) => {
+          console.log(result);
+          file.cloudinaryPublicId = result.public_id;
+          file.fileName = result.original_filename;
+          file.imageUrl = result.secure_url;
+        });
 
+        return res.status(200).json({ message: "File stored", file });
+      } catch (error) {
+        console.log(error);
+        return res
+          .status(500)
+          .json({ message: "Something went wrong while uplaoding this item" });
+      }
+    }
+  );
   app.post(
     "/multiple-upload",
     multerMiddleware.array("files"),
@@ -90,8 +115,6 @@ const initServer = async () => {
   const imageUploaderHandler = async ({ files }) => {
     let newImages = files.map(async (item) => {
       return await cloudinary.v2.uploader.upload(item.path, (error, result) => {
-        //console.log("result");
-        console.log(result.public_id);
         if (result.public_id) {
           return {
             cloudinaryPublicId: result.public_id,
